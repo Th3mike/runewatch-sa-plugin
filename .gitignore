@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Eclipse
+.settings/
+.classpath
+.project
+bin/
+
+# Temporary / Class files
+*.class
+*.log
+
+# Mac OS
+.DS_Store
