@@ -1,9 +1,11 @@
 package com.runewatchsa;
 
 import com.google.inject.Provides;
-import com.google.inject.Injector;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.ScheduledExecutorService;
+import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
@@ -26,7 +28,6 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
-import net.runelite.client.callback.ClientThread;
 
 @Slf4j
 @PluginDescriptor(
@@ -54,12 +55,6 @@ public class RuneWatchSAPlugin extends Plugin
     @Inject
     private ClientToolbar clientToolbar;
 
-    @Inject
-    private ClientThread clientThread;
-
-    @Inject
-    private Injector injector;
-
     private RuneWatchSAPanel panel;
     private NavigationButton navButton;
 
@@ -67,15 +62,15 @@ public class RuneWatchSAPlugin extends Plugin
     protected void startUp() throws Exception
     {
         panel = injector.getInstance(RuneWatchSAPanel.class);
-        panel.init(this, caseManager);
 
-        caseManager.setOnDataLoaded((cases) -> {
-            clientThread.invokeLater(() -> {
-                panel.repopulate();
-            });
+        // Fetch data immediately
+        executor.execute(() -> {
+            caseManager.refresh();
         });
 
-        // Trigger initial data load
+        // Link data loading to panel refresh
+        caseManager.setOnDataLoaded(panel::refresh);
+
         executor.execute(caseManager::refresh);
 
         if (config.showSidebarIcon())
@@ -88,15 +83,27 @@ public class RuneWatchSAPlugin extends Plugin
     {
         if (navButton != null) return;
 
-        final BufferedImage icon = ImageUtil.loadImageResource(RuneWatchSAPlugin.class, "/icon.png");
-        navButton = NavigationButton.builder()
+        BufferedImage icon = null;
+        try
+        {
+            icon = ImageUtil.loadImageResource(getClass(), "icon.png");
+        }
+        catch (Exception e)
+        {
+            log.error("Failed to load plugin icon", e);
+        }
+
+        if (icon != null)
+        {
+            navButton = NavigationButton.builder()
                 .tooltip("RuneWatch SA")
                 .icon(icon)
                 .priority(5)
                 .panel(panel)
                 .build();
 
-        clientToolbar.addNavigation(navButton);
+            clientToolbar.addNavigation(navButton);
+        }
     }
 
     private void removeNavButton()
@@ -109,7 +116,10 @@ public class RuneWatchSAPlugin extends Plugin
     @Override
     protected void shutDown() throws Exception
     {
-        removeNavButton();
+        if (navButton != null)
+        {
+            clientToolbar.removeNavigation(navButton);
+        }
     }
 
     @Provides
@@ -177,7 +187,9 @@ public class RuneWatchSAPlugin extends Plugin
     {
         if (event.getMenuOption().equals("Trade with") && config.notifyOnTrade())
         {
+            // O target vem como "<col=ffffff>Nome</col> (level-126)"
             String rawName = Text.removeTags(event.getMenuTarget());
+            // Remove o "(level-126)"
             String cleanName = rawName.split(" \\(")[0].trim();
             final String name = Text.standardize(cleanName);
             

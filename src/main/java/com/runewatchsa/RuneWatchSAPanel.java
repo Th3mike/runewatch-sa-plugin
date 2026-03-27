@@ -3,9 +3,8 @@ package com.runewatchsa;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,28 +15,29 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
-import net.runelite.client.ui.components.DynamicGridLayout;
+import net.runelite.client.ui.components.PluginErrorPanel;
 import net.runelite.client.util.LinkBrowser;
+import java.awt.Cursor;
+import java.awt.FlowLayout;
 
 public class RuneWatchSAPanel extends PluginPanel
 {
+    private final IconTextField searchBar = new IconTextField();
+    private final JPanel listContainer = new JPanel();
+    private final PluginErrorPanel errorPanel = new PluginErrorPanel();
     private final CaseManager caseManager;
 
-    private final JPanel listContainer = new JPanel();
-    private final JTextField searchBar = new JTextField();
-    private final JLabel pageLabel = new JLabel("Página 1 de 1");
-    private final JButton prevBtn = new JButton("<");
-    private final JButton nextBtn = new JButton(">");
-    
+    private List<Case> filteredCases = new ArrayList<>();
     private int currentPage = 0;
     private static final int ITEMS_PER_PAGE = 6;
-    private List<Case> filteredCases = new ArrayList<>();
 
     @Inject
     public RuneWatchSAPanel(CaseManager caseManager)
@@ -45,26 +45,24 @@ public class RuneWatchSAPanel extends PluginPanel
         super();
         this.caseManager = caseManager;
 
-        setBorder(new EmptyBorder(10, 10, 10, 10));
+        setBorder(null);
         setLayout(new BorderLayout());
+        setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-        // Header Title
-        JLabel title = new JLabel("RuneWatch SA");
+        // Header / Search Area
+        JPanel headerPanel = new JPanel();
+        headerPanel.setLayout(new BorderLayout());
+        headerPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
+
+        JLabel title = new JLabel("RuneWatch SA", SwingConstants.CENTER);
         title.setFont(FontManager.getRunescapeBoldFont());
-        title.setForeground(Color.WHITE);
-        title.setBorder(new EmptyBorder(0, 0, 10, 0));
-        add(title, BorderLayout.NORTH);
+        title.setBorder(new EmptyBorder(15, 0, 10, 0)); // Aumentado para 15
+        headerPanel.add(title, BorderLayout.NORTH);
 
-        JPanel mainContent = new JPanel();
-        mainContent.setLayout(new BoxLayout(mainContent, BoxLayout.Y_AXIS));
-
-        // Search Bar
+        searchBar.setIcon(IconTextField.Icon.SEARCH);
         searchBar.setPreferredSize(new Dimension(PluginPanel.PANEL_WIDTH, 35));
-        searchBar.setMaximumSize(new Dimension(PluginPanel.PANEL_WIDTH, 35));
         searchBar.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        searchBar.setForeground(Color.WHITE);
-        searchBar.setCaretColor(Color.WHITE);
-        searchBar.setBorder(new EmptyBorder(5, 5, 5, 5));
+        searchBar.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
         searchBar.getDocument().addDocumentListener(new DocumentListener()
         {
             @Override
@@ -74,85 +72,83 @@ public class RuneWatchSAPanel extends PluginPanel
             @Override
             public void changedUpdate(DocumentEvent e) { updateFilter(); }
         });
-        
-        mainContent.add(searchBar);
-        mainContent.add(Box.createVerticalStrut(10));
+        headerPanel.add(searchBar, BorderLayout.CENTER);
 
-        // Refresh Button
         JButton refreshBtn = new JButton("Atualizar Casos");
-        refreshBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        refreshBtn.addActionListener(e -> caseManager.refresh());
-        mainContent.add(refreshBtn);
-
-        mainContent.add(Box.createVerticalStrut(15));
-
-        // Container para os cards
-        listContainer.setLayout(new DynamicGridLayout(0, 1, 0, 10));
-        mainContent.add(listContainer);
-
-        add(mainContent, BorderLayout.CENTER);
-
-        // Footer Pagination
-        JPanel footer = new JPanel(new BorderLayout());
-        JPanel paginationControls = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
-        
-        prevBtn.setPreferredSize(new Dimension(40, 25));
-        nextBtn.setPreferredSize(new Dimension(40, 25));
-        
-        prevBtn.addActionListener(e -> {
-            if (currentPage > 0) {
-                currentPage--;
-                repopulate();
-            }
-        });
-        
-        nextBtn.addActionListener(e -> {
-            if ((currentPage + 1) * ITEMS_PER_PAGE < filteredCases.size()) {
-                currentPage++;
-                repopulate();
-            }
+        refreshBtn.setFont(FontManager.getRunescapeSmallFont());
+        refreshBtn.setFocusable(false);
+        refreshBtn.addActionListener(e -> {
+            caseManager.refresh();
         });
 
-        paginationControls.add(prevBtn);
-        paginationControls.add(pageLabel);
-        paginationControls.add(nextBtn);
-        
-        footer.add(paginationControls, BorderLayout.CENTER);
-        footer.setBorder(new EmptyBorder(10, 0, 0, 0));
+        // Wrapper para dar margem real no topo do botão
+        JPanel btnWrapper = new JPanel(new BorderLayout());
+        btnWrapper.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        btnWrapper.setBorder(new EmptyBorder(10, 0, 0, 0));
+        btnWrapper.add(refreshBtn, BorderLayout.CENTER);
 
-        add(footer, BorderLayout.SOUTH);
+        headerPanel.add(btnWrapper, BorderLayout.SOUTH);
+
+        JPanel mainContent = new JPanel();
+        mainContent.setLayout(new BorderLayout());
+        mainContent.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        mainContent.add(headerPanel, BorderLayout.NORTH);
+
+        // List Container with BoxLayout (stacks items top-to-bottom)
+        listContainer.setLayout(new BoxLayout(listContainer, BoxLayout.Y_AXIS));
+        listContainer.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        
+        mainContent.add(listContainer, BorderLayout.CENTER);
+        
+        add(mainContent, BorderLayout.NORTH);
+
+        // Error Panel (for empty states)
+        errorPanel.setContent("Nenhum caso encontrado", "Tente buscar por outro nome ou aguarde a atualização da rede.");
+        
+        refresh();
+    }
+
+    public void refresh()
+    {
+        updateFilter();
     }
 
     private void updateFilter()
     {
-        String text = searchBar.getText().toLowerCase();
-        filteredCases = caseManager.getCases().values().stream()
-            .filter(c -> c.getName().toLowerCase().contains(text) || 
-                         (c.getNameHistory() != null && c.getNameHistory().stream().anyMatch(h -> h.toLowerCase().contains(text))))
+        String query = searchBar.getText().toLowerCase();
+        filteredCases = caseManager.getCases().stream()
+            .filter(c -> c.getName().toLowerCase().contains(query) || 
+                         (c.getNameHistory() != null && c.getNameHistory().stream().anyMatch(h -> h.toLowerCase().contains(query))))
             .collect(Collectors.toList());
         
         currentPage = 0;
-        repopulate();
+        rebuild();
     }
 
-    public void repopulate()
+    private void rebuild()
     {
         listContainer.removeAll();
 
-        if (searchBar.getText().isEmpty() || searchBar.getText().equals("Pesquisar jogador...")) {
-            filteredCases = new ArrayList<>(caseManager.getCases().values());
+        if (filteredCases.isEmpty())
+        {
+            listContainer.add(errorPanel);
         }
+        else
+        {
+            int start = currentPage * ITEMS_PER_PAGE;
+            int end = Math.min(start + ITEMS_PER_PAGE, filteredCases.size());
 
-        int totalPages = Math.max(1, (int) Math.ceil((double) filteredCases.size() / ITEMS_PER_PAGE));
-        pageLabel.setText(String.format("Página %d de %d", currentPage + 1, totalPages));
+            for (int i = start; i < end; i++)
+            {
+                listContainer.add(createCaseRow(filteredCases.get(i)));
+                listContainer.add(Box.createVerticalStrut(8));
+            }
 
-        prevBtn.setEnabled(currentPage > 0);
-        nextBtn.setEnabled((currentPage + 1) * ITEMS_PER_PAGE < filteredCases.size());
-
-        filteredCases.stream()
-            .skip((long) currentPage * ITEMS_PER_PAGE)
-            .limit(ITEMS_PER_PAGE)
-            .forEach(c -> listContainer.add(createCaseRow(c)));
+            if (filteredCases.size() > ITEMS_PER_PAGE)
+            {
+                listContainer.add(createPaginationPanel());
+            }
+        }
 
         listContainer.revalidate();
         listContainer.repaint();
@@ -160,54 +156,105 @@ public class RuneWatchSAPanel extends PluginPanel
 
     private JPanel createCaseRow(Case c)
     {
-        JPanel row = new JPanel();
-        row.setLayout(new BorderLayout());
+        JPanel row = new JPanel(new BorderLayout());
         row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         row.setBorder(new EmptyBorder(10, 10, 10, 10));
 
+        // Painel de conteúdo
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-        JLabel nameLabel = new JLabel(c.getName());
+        JLabel nameLabel = new JLabel("RSN: " + c.getName());
         nameLabel.setFont(FontManager.getRunescapeBoldFont());
         nameLabel.setForeground(Color.WHITE);
+        nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(nameLabel);
 
-        JLabel reasonLabel = new JLabel(c.getReason());
-        reasonLabel.setFont(FontManager.getRunescapeSmallFont());
-        reasonLabel.setForeground(Color.YELLOW);
+        JLabel reasonLabel = new JLabel(c.getReason().toUpperCase());
+        reasonLabel.setFont(FontManager.getRunescapeBoldFont());
+        reasonLabel.setForeground(Color.RED);
+        reasonLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(reasonLabel);
 
-        JLabel valueLabel = new JLabel("Valor: " + c.getValue());
+        JLabel valueLabel = new JLabel("Valor: " + c.getValue() + " ");
         valueLabel.setFont(FontManager.getRunescapeSmallFont());
-        valueLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+        valueLabel.setForeground(Color.YELLOW);
+        valueLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        valueLabel.setBorder(new EmptyBorder(5, 0, 0, 0));
         content.add(valueLabel);
 
-        JLabel approvalLabel = new JLabel("Verificado: " + c.getApprovalDate());
+        // Informações das Datas (Mais claras)
+        /*JLabel submissionLabel = new JLabel("Enviado em: " + c.getSubmissionDate());
+        submissionLabel.setFont(FontManager.getRunescapeSmallFont());
+        submissionLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR); // Cor mais clara!
+        submissionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(submissionLabel);*/
+
+        JLabel approvalLabel = new JLabel("Confirmado em: " + c.getApprovalDate());
         approvalLabel.setFont(FontManager.getRunescapeSmallFont());
-        approvalLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+        approvalLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR); // Cor mais clara!
+        approvalLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(approvalLabel);
 
-        if (c.getNameHistory() != null && !c.getNameHistory().isEmpty())
-        {
-            String historyText = "Nomes ant.: " + String.join(", ", c.getNameHistory().stream().limit(2).collect(Collectors.toList()));
-            if (c.getNameHistory().size() > 2) historyText += " + " + (c.getNameHistory().size() - 2);
+        // Histórico de nomes (Compacto para não quebrar o layout)
+        if (c.getNameHistory() != null && !c.getNameHistory().isEmpty()) {
+            List<String> history = c.getNameHistory();
+            String historyText = "Nomes ant.: " + history.get(0);
+            
+            if (history.size() > 1) {
+                historyText += ", " + history.get(1);
+            }
+            if (history.size() > 2) {
+                historyText += " + " + (history.size() - 2) + " outros";
+            }
             
             JLabel historyLabel = new JLabel(historyText);
             historyLabel.setFont(FontManager.getRunescapeSmallFont());
-            historyLabel.setForeground(ColorScheme.DARK_GRAY_HOVER_COLOR);
+            historyLabel.setForeground(ColorScheme.DARK_GRAY_HOVER_COLOR); // Discreto
+            historyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            historyLabel.setBorder(new EmptyBorder(5, 0, 0, 0));
             content.add(historyLabel);
         }
 
-        row.add(content, BorderLayout.CENTER);
-
-        JButton detailsBtn = new JButton("Detalhes");
-        detailsBtn.setFont(FontManager.getRunescapeSmallFont());
+        // Botão de Detalhes
+        JButton detailsBtn = new JButton("Ver Detalhes");
         detailsBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        detailsBtn.setFont(FontManager.getRunescapeSmallFont());
+        detailsBtn.setFocusable(false);
+        detailsBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        detailsBtn.setBorder(new EmptyBorder(5, 0, 5, 0));
         detailsBtn.addActionListener(e -> LinkBrowser.browse(c.getEvidence()));
+        
+        row.add(content, BorderLayout.CENTER);
         row.add(detailsBtn, BorderLayout.SOUTH);
 
         return row;
+    }
+
+    private JPanel createPaginationPanel()
+    {
+        JPanel pagination = new JPanel(new GridLayout(1, 3, 5, 0)); // 3 colunas para acomodar o texto
+        pagination.setBorder(new EmptyBorder(10, 0, 10, 0));
+        pagination.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        JButton prev = new JButton("Anterior");
+        prev.setEnabled(currentPage > 0);
+        prev.addActionListener(e -> { currentPage--; rebuild(); });
+
+        int totalPages = (int) Math.ceil((double) filteredCases.size() / ITEMS_PER_PAGE);
+        JLabel pageInfo = new JLabel("Pág. " + (currentPage + 1) + " / " + totalPages, SwingConstants.CENTER);
+        pageInfo.setFont(FontManager.getRunescapeSmallFont());
+        pageInfo.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+
+        JButton next = new JButton("Próximo");
+        next.setEnabled((currentPage + 1) * ITEMS_PER_PAGE < filteredCases.size());
+        next.addActionListener(e -> { currentPage++; rebuild(); });
+
+        pagination.add(prev);
+        pagination.add(pageInfo);
+        pagination.add(next);
+        
+        return pagination;
     }
 }

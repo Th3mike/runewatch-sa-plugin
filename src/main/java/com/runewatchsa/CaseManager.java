@@ -4,44 +4,51 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import javax.swing.SwingUtilities;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.Setter;
+
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.util.Text;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import java.io.IOException;
-import net.runelite.client.util.Text;
 
 @Slf4j
 @Singleton
 public class CaseManager
 {
-    private final Map<String, Case> cases = new ConcurrentHashMap<>();
+    private static final String URL = "https://runewatch-sa.onrender.com/api/cases";
+
     private final OkHttpClient client;
     private final Gson gson;
-
-    @Setter
-    private Consumer<Map<String, Case>> onDataLoaded;
+    private final Map<String, Case> cases = new ConcurrentHashMap<>();
+    private Runnable onDataLoaded = null;
 
     @Inject
-    public CaseManager(OkHttpClient client, Gson gson)
+    private CaseManager(OkHttpClient client, Gson gson)
     {
         this.client = client;
         this.gson = gson;
     }
 
+    public void setOnDataLoaded(Runnable callback)
+    {
+        this.onDataLoaded = callback;
+    }
+
     public void refresh()
     {
-        final String URL = "https://runewatch-sa.onrender.com/api/cases";
-        
         Request request = new Request.Builder()
             .url(URL)
             .build();
@@ -51,7 +58,7 @@ public class CaseManager
             @Override
             public void onFailure(Call call, IOException e)
             {
-                log.error("Failed to fetch RuneWatch SA cases", e);
+                log.error("Error retrieving RuneWatch SA cases", e);
             }
 
             @Override
@@ -91,9 +98,14 @@ public class CaseManager
                     
                     if (onDataLoaded != null)
                     {
-                        onDataLoaded.accept(cases);
+                        SwingUtilities.invokeLater(onDataLoaded);
                     }
                 }
+                else
+                {
+                    log.error("Error retrieving RuneWatch SA cases: {}", response.code());
+                }
+
                 response.close();
             }
         });
@@ -104,8 +116,8 @@ public class CaseManager
         return cases.get(Text.standardize(name));
     }
 
-    public Map<String, Case> getCases()
+    public List<Case> getCases()
     {
-        return cases;
+        return new ArrayList<>(cases.values());
     }
 }
