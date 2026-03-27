@@ -1,5 +1,6 @@
 package com.runewatchsa;
 
+import com.google.inject.Injector;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -63,14 +64,10 @@ public class RuneWatchSAPlugin extends Plugin
     {
         panel = injector.getInstance(RuneWatchSAPanel.class);
 
-        // Fetch data immediately
-        executor.execute(() -> {
-            caseManager.refresh();
-        });
-
         // Link data loading to panel refresh
         caseManager.setOnDataLoaded(panel::refresh);
 
+        // Fetch data once on startup
         executor.execute(caseManager::refresh);
 
         if (config.showSidebarIcon())
