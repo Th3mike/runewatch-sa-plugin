@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.concurrent.TimeUnit;
+
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.util.Text;
 import okhttp3.Call;
@@ -38,7 +40,12 @@ public class CaseManager
     @Inject
     private CaseManager(OkHttpClient client, Gson gson)
     {
-        this.client = client;
+        // Aumentamos o timeout para 60s para lidar com o cold-start do Render
+        this.client = client.newBuilder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build();
         this.gson = gson;
     }
 
@@ -118,6 +125,6 @@ public class CaseManager
 
     public List<Case> getCases()
     {
-        return new ArrayList<>(cases.values());
+        return new ArrayList<>(new java.util.HashSet<>(cases.values()));
     }
 }

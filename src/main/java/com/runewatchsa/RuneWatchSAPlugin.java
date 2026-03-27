@@ -8,6 +8,8 @@ import java.io.InputStream;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
+import javax.swing.*;
+
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
@@ -31,13 +33,9 @@ import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
 
 @Slf4j
-@PluginDescriptor(
-    name = "RuneWatch SA",
-    description = "Shows players on the RuneWatch South America watchlist",
-    tags = {"scam", "watch", "list", "south america", "sa"}
-)
-public class RuneWatchSAPlugin extends Plugin
-{
+@PluginDescriptor(name = "RuneWatch SA", description = "Shows players on the RuneWatch South America watchlist", tags = {
+        "scam", "watch", "list", "south america", "sa" })
+public class RuneWatchSAPlugin extends Plugin {
     @Inject
     private Client client;
 
@@ -60,8 +58,7 @@ public class RuneWatchSAPlugin extends Plugin
     private NavigationButton navButton;
 
     @Override
-    protected void startUp() throws Exception
-    {
+    protected void startUp() throws Exception {
         panel = injector.getInstance(RuneWatchSAPanel.class);
 
         // Link data loading to panel refresh
@@ -70,139 +67,129 @@ public class RuneWatchSAPlugin extends Plugin
         // Fetch data once on startup
         executor.execute(caseManager::refresh);
 
-        if (config.showSidebarIcon())
-        {
+        if (config.showSidebarIcon()) {
             setupNavButton();
         }
     }
 
-    private void setupNavButton()
-    {
-        if (navButton != null) return;
+    private void setupNavButton() {
+        if (navButton != null)
+            return;
 
         BufferedImage icon = null;
-        try
-        {
+        try {
             icon = ImageUtil.loadImageResource(getClass(), "icon.png");
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             log.error("Failed to load plugin icon", e);
         }
 
-        if (icon != null)
-        {
+        if (icon != null) {
             navButton = NavigationButton.builder()
-                .tooltip("RuneWatch SA")
-                .icon(icon)
-                .priority(5)
-                .panel(panel)
-                .build();
+                    .tooltip("RuneWatch SA")
+                    .icon(icon)
+                    .priority(5)
+                    .panel(panel)
+                    .build();
 
             clientToolbar.addNavigation(navButton);
         }
     }
 
-    private void removeNavButton()
-    {
-        if (navButton == null) return;
-        clientToolbar.removeNavigation(navButton);
+    private void removeNavButton() {
+        if (navButton == null)
+            return;
+        
+        NavigationButton button = navButton;
         navButton = null;
+        
+        // Remove na thread UI para evitar NPEs intermitentes
+        SwingUtilities.invokeLater(() -> {
+            try {
+                clientToolbar.removeNavigation(button);
+            } catch (Exception e) {
+                log.warn("Failed to remove navigation button", e);
+            }
+        });
     }
 
     @Override
-    protected void shutDown() throws Exception
-    {
-        if (navButton != null)
-        {
-            clientToolbar.removeNavigation(navButton);
-        }
+    protected void shutDown() throws Exception {
+        removeNavButton();
     }
 
     @Provides
-    RuneWatchSAConfig provideConfig(ConfigManager configManager)
-    {
+    RuneWatchSAConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(RuneWatchSAConfig.class);
     }
 
     @Subscribe
-    public void onConfigChanged(ConfigChanged event)
-    {
-        if (!event.getGroup().equals("runewatchsa")) return;
+    public void onConfigChanged(ConfigChanged event) {
+        if (!event.getGroup().equals("runewatchsa"))
+            return;
 
-        if (event.getKey().equals("showSidebarIcon"))
-        {
-            if (config.showSidebarIcon())
-            {
+        if (event.getKey().equals("showSidebarIcon")) {
+            if (config.showSidebarIcon()) {
                 setupNavButton();
-            }
-            else
-            {
+            } else {
                 removeNavButton();
             }
         }
     }
 
     @Subscribe
-    public void onGameStateChanged(GameStateChanged gameStateChanged)
-    {
-        if (gameStateChanged.getGameState() == GameState.LOGGING_IN)
-        {
+    public void onGameStateChanged(GameStateChanged gameStateChanged) {
+        if (gameStateChanged.getGameState() == GameState.LOGGING_IN) {
             executor.execute(caseManager::refresh);
         }
     }
 
     @Subscribe
-    public void onPlayerSpawned(PlayerSpawned event)
-    {
-        if (!config.notifyOnRadius())
-        {
+    public void onPlayerSpawned(PlayerSpawned event) {
+        if (!config.notifyOnRadius()) {
             return;
         }
 
         final Player player = event.getPlayer();
-        if (player == null || player.getName() == null) return;
+        if (player == null || player.getName() == null)
+            return;
 
         final String name = Text.standardize(player.getName());
 
-        if (caseManager.get(name) != null)
-        {
+        if (caseManager.get(name) != null) {
             final String message = new ChatMessageBuilder()
-                .append(ChatColorType.HIGHLIGHT)
-                .append("[RuneWatch SA] Alerta: O jogador " + player.getName() + " está próximo e consta na lista de scammers!")
-                .build();
+                    .append(ChatColorType.HIGHLIGHT)
+                    .append("[RuneWatch SA] Alerta: O jogador " + player.getName()
+                            + " está próximo e consta na lista de scammers!")
+                    .build();
 
             chatMessageManager.queue(QueuedMessage.builder()
-                .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage(message)
-                .build());
+                    .type(ChatMessageType.GAMEMESSAGE)
+                    .runeLiteFormattedMessage(message)
+                    .build());
         }
     }
 
     @Subscribe
-    public void onMenuOptionClicked(MenuOptionClicked event)
-    {
-        if (event.getMenuOption().equals("Trade with") && config.notifyOnTrade())
-        {
+    public void onMenuOptionClicked(MenuOptionClicked event) {
+        if (event.getMenuOption().equals("Trade with") && config.notifyOnTrade()) {
             // O target vem como "<col=ffffff>Nome</col> (level-126)"
             String rawName = Text.removeTags(event.getMenuTarget());
             // Remove o "(level-126)"
             String cleanName = rawName.split(" \\(")[0].trim();
             final String name = Text.standardize(cleanName);
-            
+
             final Case c = caseManager.get(name);
 
-            if (c != null)
-            {
+            if (c != null) {
                 final String message = new ChatMessageBuilder()
-                    .append(ChatColorType.HIGHLIGHT)
-                    .append("[RuneWatch SA] PERIGO: " + cleanName + " está na lista: " + c.getReason())
-                    .build();
+                        .append(ChatColorType.HIGHLIGHT)
+                        .append("[RuneWatch SA] PERIGO: " + cleanName + " está na lista: " + c.getReason())
+                        .build();
 
                 chatMessageManager.queue(QueuedMessage.builder()
-                    .type(ChatMessageType.GAMEMESSAGE)
-                    .runeLiteFormattedMessage(message)
-                    .build());
+                        .type(ChatMessageType.GAMEMESSAGE)
+                        .runeLiteFormattedMessage(message)
+                        .build());
             }
         }
     }

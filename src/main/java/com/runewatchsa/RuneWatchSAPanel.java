@@ -211,9 +211,13 @@ public class RuneWatchSAPanel extends PluginPanel
             
             JLabel historyLabel = new JLabel(historyText);
             historyLabel.setFont(FontManager.getRunescapeSmallFont());
-            historyLabel.setForeground(ColorScheme.DARK_GRAY_HOVER_COLOR); // Discreto
+            historyLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR); // Mais visível
             historyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
             historyLabel.setBorder(new EmptyBorder(5, 0, 0, 0));
+            
+            // Adiciona Tooltip com o histórico completo
+            historyLabel.setToolTipText("Histórico completo: " + String.join(", ", history));
+            
             content.add(historyLabel);
         }
 
