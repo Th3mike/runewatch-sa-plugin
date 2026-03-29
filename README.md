@@ -1,6 +1,6 @@
 # RuneWatch SA
 
-A RuneLite plugin for the South American RuneWatch community. This plugin integrates with the [RuneWatch SA Platform](https://runewatch-sa.onrender.com) to provide real-time alerts and player search functionality for reported scammers.
+A RuneLite plugin for the South American RuneWatch community. This plugin integrates with the [RuneWatch SA Platform](https://runewatch-sa-7w0r.onrender.com) to provide real-time alerts and player search functionality for reported scammers.
 
 ## Features
 - **Real-time Notifications**: Get alerted in chat when a player in the banlist is nearby.
