@@ -30,7 +30,7 @@ import okhttp3.Response;
 @Singleton
 public class CaseManager
 {
-    private static final String URL = "https://runewatch-sa-7w0r.onrender.com/api/cases";
+    private static final String URL = "https://runewatch-sa.vercel.app/api/cases";
 
     private final OkHttpClient client;
     private final Gson gson;
