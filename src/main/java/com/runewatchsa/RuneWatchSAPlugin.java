@@ -115,10 +115,10 @@ public class RuneWatchSAPlugin extends Plugin {
     private void removeNavButton() {
         if (navButton == null)
             return;
-        
+
         NavigationButton button = navButton;
         navButton = null;
-        
+
         // Remove na thread UI para evitar NPEs intermitentes
         SwingUtilities.invokeLater(() -> {
             try {
@@ -221,83 +221,30 @@ public class RuneWatchSAPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onMenuEntryAdded(MenuEntryAdded event)
-    {
-        if (!config.showInvestigateOption())
-        {
+    public void onMenuEntryAdded(MenuEntryAdded event) {
+        if (!config.showInvestigateOption()) {
             return;
         }
 
         final String option = event.getOption();
-        if (!option.equals("Trade with") && !option.equals("Walk here"))
-        {
+        if (!option.equals("Trade with") && !option.equals("Walk here")) {
             return;
         }
 
         final Player player = event.getMenuEntry().getPlayer();
-        if (player == null)
-        {
+        if (player == null) {
             return;
         }
 
         final String name = Text.standardize(player.getName());
         final Case c = caseManager.get(name);
 
-        if (c != null)
-        {
+        if (c != null) {
             client.createMenuEntry(-1)
-                .setOption("Investigate")
-                .setTarget(event.getTarget())
-                .setType(MenuAction.RUNELITE)
-                .onClick(e -> LinkBrowser.browse(c.getEvidence()));
-        }
-    }
-
-    @Subscribe
-    public void onClientTick(ClientTick event)
-    {
-        if (!config.highlightRaidBoard() || client.getGameState() != GameState.LOGGED_IN)
-        {
-            return;
-        }
-
-        // Raids Board Check (CoX, ToB, ToA)
-        // CoX Party Board (645)
-        highlightRaidBoard(645);
-        // ToB Party Board (775)
-        highlightRaidBoard(775);
-        // ToA Party Board (774)
-        highlightRaidBoard(774);
-    }
-
-    private void highlightRaidBoard(int groupId)
-    {
-        Widget board = client.getWidget(groupId, 0);
-        if (board == null || board.isHidden())
-        {
-            return;
-        }
-
-        Widget[] children = board.getDynamicChildren();
-        if (children == null)
-        {
-            return;
-        }
-
-        for (Widget child : children)
-        {
-            if (child.getText() == null || child.getText().isEmpty())
-            {
-                continue;
-            }
-
-            String text = Text.removeTags(child.getText());
-            Case c = caseManager.get(text);
-
-            if (c != null)
-            {
-                child.setText("<col=ff0000>" + text + " [SCAMMER]</col>");
-            }
+                    .setOption("Investigate")
+                    .setTarget(event.getTarget())
+                    .setType(MenuAction.RUNELITE)
+                    .onClick(e -> LinkBrowser.browse(c.getEvidence()));
         }
     }
 }
