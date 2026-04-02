@@ -46,14 +46,4 @@ public interface RuneWatchSAConfig extends Config {
     default boolean showInvestigateOption() {
         return true;
     }
-
-    @ConfigItem(
-        keyName = "highlightRaidBoard",
-        name = "Sinalizar na Board de Raids",
-        description = "Destaca em vermelho os nomes de scammers nas listas de raid (CoX, ToB, ToA)",
-        position = 9
-    )
-    default boolean highlightRaidBoard() {
-        return true;
-    }
 }
