@@ -6,8 +6,11 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
 import javax.inject.Inject;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -119,10 +122,24 @@ public class RuneWatchSAPanel extends PluginPanel
         filteredCases = caseManager.getCases().stream()
             .filter(c -> c.getName().toLowerCase().contains(query) || 
                          (c.getNameHistory() != null && c.getNameHistory().stream().anyMatch(h -> h.toLowerCase().contains(query))))
+            .sorted(Comparator.comparing(this::parseDate).reversed())
             .collect(Collectors.toList());
         
         currentPage = 0;
         rebuild();
+    }
+
+    private LocalDate parseDate(Case c)
+    {
+        try
+        {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return LocalDate.parse(c.getApprovalDate(), formatter);
+        }
+        catch (Exception e)
+        {
+            return LocalDate.MIN;
+        }
     }
 
     private void rebuild()
@@ -171,9 +188,9 @@ public class RuneWatchSAPanel extends PluginPanel
         nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(nameLabel);
 
-        JLabel reasonLabel = new JLabel(c.getReason().toUpperCase());
+        JLabel reasonLabel = new JLabel("Motivo: " + c.getReason().toUpperCase());
         reasonLabel.setFont(FontManager.getRunescapeBoldFont());
-        reasonLabel.setForeground(Color.RED);
+        reasonLabel.setForeground(new Color(255, 80, 80)); // Vermelho mais suave/moderno
         reasonLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(reasonLabel);
 

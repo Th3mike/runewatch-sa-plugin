@@ -29,12 +29,21 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.api.MenuAction;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.client.util.LinkBrowser;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.events.ClientTick;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
+import java.awt.Color;
 
 @Slf4j
 @PluginDescriptor(name = "RuneWatch SA", description = "Shows players on the RuneWatch South America watchlist", tags = {
-        "scam", "watch", "list", "south america", "sa" })
+        "scam", "watch", "list", "south america", "sa", "runewatch" })
 public class RuneWatchSAPlugin extends Plugin {
     @Inject
     private Client client;
@@ -54,6 +63,12 @@ public class RuneWatchSAPlugin extends Plugin {
     @Inject
     private ClientToolbar clientToolbar;
 
+    @Inject
+    private OverlayManager overlayManager;
+
+    @Inject
+    private RuneWatchSAOverlay overlay;
+
     private RuneWatchSAPanel panel;
     private NavigationButton navButton;
 
@@ -70,6 +85,8 @@ public class RuneWatchSAPlugin extends Plugin {
         if (config.showSidebarIcon()) {
             setupNavButton();
         }
+
+        overlayManager.add(overlay);
     }
 
     private void setupNavButton() {
@@ -115,6 +132,7 @@ public class RuneWatchSAPlugin extends Plugin {
     @Override
     protected void shutDown() throws Exception {
         removeNavButton();
+        overlayManager.remove(overlay);
     }
 
     @Provides
@@ -154,12 +172,16 @@ public class RuneWatchSAPlugin extends Plugin {
             return;
 
         final String name = Text.standardize(player.getName());
+        Case c = caseManager.get(name);
 
-        if (caseManager.get(name) != null) {
+        if (c != null) {
             final String message = new ChatMessageBuilder()
-                    .append(ChatColorType.HIGHLIGHT)
-                    .append("[RuneWatch SA] Alerta: O jogador " + player.getName()
-                            + " está próximo e consta na lista de scammers!")
+                    .append(Color.RED, "[RuneWatch SA] ")
+                    .append(Color.ORANGE, "ALERTA: ")
+                    .append(Color.WHITE, "O SCAMMER ")
+                    .append(Color.RED, player.getName())
+                    .append(Color.WHITE, " está próximo! Motivo: ")
+                    .append(Color.YELLOW, c.getReason())
                     .build();
 
             chatMessageManager.queue(QueuedMessage.builder()
@@ -182,14 +204,99 @@ public class RuneWatchSAPlugin extends Plugin {
 
             if (c != null) {
                 final String message = new ChatMessageBuilder()
-                        .append(ChatColorType.HIGHLIGHT)
-                        .append("[RuneWatch SA] PERIGO: " + cleanName + " está na lista: " + c.getReason())
+                        .append(Color.RED, "[RuneWatch SA] ")
+                        .append(Color.ORANGE, "PERIGO: ")
+                        .append(Color.WHITE, "Você está negociando com o SCAMMER ")
+                        .append(Color.RED, cleanName)
+                        .append(Color.WHITE, ". Ele está na lista: ")
+                        .append(Color.YELLOW, c.getReason())
                         .build();
 
                 chatMessageManager.queue(QueuedMessage.builder()
                         .type(ChatMessageType.GAMEMESSAGE)
                         .runeLiteFormattedMessage(message)
                         .build());
+            }
+        }
+    }
+
+    @Subscribe
+    public void onMenuEntryAdded(MenuEntryAdded event)
+    {
+        if (!config.showInvestigateOption())
+        {
+            return;
+        }
+
+        final String option = event.getOption();
+        if (!option.equals("Trade with") && !option.equals("Walk here"))
+        {
+            return;
+        }
+
+        final Player player = event.getMenuEntry().getPlayer();
+        if (player == null)
+        {
+            return;
+        }
+
+        final String name = Text.standardize(player.getName());
+        final Case c = caseManager.get(name);
+
+        if (c != null)
+        {
+            client.createMenuEntry(-1)
+                .setOption("Investigate")
+                .setTarget(event.getTarget())
+                .setType(MenuAction.RUNELITE)
+                .onClick(e -> LinkBrowser.browse(c.getEvidence()));
+        }
+    }
+
+    @Subscribe
+    public void onClientTick(ClientTick event)
+    {
+        if (!config.highlightRaidBoard() || client.getGameState() != GameState.LOGGED_IN)
+        {
+            return;
+        }
+
+        // Raids Board Check (CoX, ToB, ToA)
+        // CoX Party Board (645)
+        highlightRaidBoard(645);
+        // ToB Party Board (775)
+        highlightRaidBoard(775);
+        // ToA Party Board (774)
+        highlightRaidBoard(774);
+    }
+
+    private void highlightRaidBoard(int groupId)
+    {
+        Widget board = client.getWidget(groupId, 0);
+        if (board == null || board.isHidden())
+        {
+            return;
+        }
+
+        Widget[] children = board.getDynamicChildren();
+        if (children == null)
+        {
+            return;
+        }
+
+        for (Widget child : children)
+        {
+            if (child.getText() == null || child.getText().isEmpty())
+            {
+                continue;
+            }
+
+            String text = Text.removeTags(child.getText());
+            Case c = caseManager.get(text);
+
+            if (c != null)
+            {
+                child.setText("<col=ff0000>" + text + " [SCAMMER]</col>");
             }
         }
     }
